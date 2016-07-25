@@ -1,0 +1,3 @@
+[submodule "fastdb"]
+	path = fastdb
+	url = https://kinbei@github.com/kinbei/fastdb.git
