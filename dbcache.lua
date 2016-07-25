@@ -27,6 +27,10 @@ function M.close()
 	end
 end
 
+function M.test()
+	c.test(M.session)
+end
+
 return setmetatable(M, { __gc = function(self)
 	M.close()
 end }

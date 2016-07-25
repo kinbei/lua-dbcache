@@ -7,6 +7,8 @@ extern "C" {
 #include "lauxlib.h"
 }
 
+#include "msvcint.h"
+#include "fastdb/fastdb.h"
 #include "fastdb/cli.h"
 #include "cleanupsem.h"
 
@@ -94,6 +96,47 @@ lclose(lua_State *L) {
 	return 0;
 }
 
+/* table record define */
+struct tb_activity_record {
+	cli_int8_t activity_id;
+};
+
+/* table field define */
+struct cli_field_descriptor tb_activity_descriptor[] = {
+		{ cli_int8, cli_indexed, "activity_id", },
+};
+
+static int
+ltest(lua_State *L) {
+	int session = lua_tointeger(L, 1);
+
+	int r = cli_create_table(session, "tb_activity", sizeof(tb_activity_descriptor)/sizeof(cli_field_descriptor), tb_activity_descriptor);
+	if ( r != cli_ok ) {		
+		return luaL_error(L, "Failed to insert(%d)", r);
+	}
+	
+	struct tb_activity_record t;
+	t.activity_id = 0x7FFFFFFFFFFFFFFF;
+	r = cli_insert_struct(session, "tb_activity", &t, NULL);
+	if ( r != cli_ok ) {
+		return luaL_error(L, "Failed to insert(%d)", r);
+	}
+
+	int statement = cli_prepare_query(session, 
+		"select * from tb_activity where activity_id = %li");
+	if ( statement < 0 ) {
+		return luaL_error(L, "Failed to prepare query with code(%d)", statement);
+	}
+	
+	struct tb_activity_record rt;
+	r = cli_execute_query(statement, cli_view_only, &rt, (cli_int8_t)0x7FFFFFFFFFFFFFFF);
+	if (r > 0) {
+		printf("activity(%lld) \n", rt.activity_id);
+	}
+
+	return 0;
+}
+
 extern "C" int
 luaopen_dbcache_core(lua_State *L) {
 	luaL_checkversion(L);
@@ -105,6 +148,7 @@ luaopen_dbcache_core(lua_State *L) {
 		{ "commit", lcommit },
 		{ "rollback", lrollback },
 		{ "close", lclose },
+		{ "test", ltest },
 		{ NULL, NULL },
 	};
 
