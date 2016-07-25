@@ -1,3 +1,6 @@
 [submodule "fastdb"]
 	path = fastdb
 	url = https://kinbei@github.com/kinbei/fastdb.git
+[submodule "lua"]
+	path = lua
+	url = https://kinbei@github.com/kinbei/Lua
