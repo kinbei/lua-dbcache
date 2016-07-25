@@ -1,16 +1,33 @@
 local M = {}
 M.memdbname = nil
+M.session = nil
 
 local c = require "dbcache.core"
 
 function M.init(memdbname, ...)
-	c.init(memdbname, ...)
+	M.session = c.init(memdbname, ...)
 	M.memdbname = memdbname
 end
 
-return setmetatable(M, { __gc = function(self)
+function M.begin()
+	c.begin(M.session)
+end
+
+function M.commit()
+	c.commit(M.session)
+end
+
+function M.rollback()
+	c.rollback(M.session)
+end
+
+function M.close()
 	if M.memdbname then
-		c.cleanupsem(M.memdbname)
+		c.close(M.memdbname, M.session)
 	end
+end
+
+return setmetatable(M, { __gc = function(self)
+	M.close()
 end }
 )

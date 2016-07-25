@@ -10,7 +10,7 @@ extern "C" {
 #include "fastdb/cli.h"
 #include "cleanupsem.h"
 
-#define MB 1024
+#define MB 1024*1024
 
 // memdbname, initsize, incsize, idxsize, maxsize
 static int
@@ -39,13 +39,57 @@ linit(lua_State *L) {
 	if ( session < 0 )
 		return luaL_error(L, "Failed to create memdb(%d)", session);
 
-	return 0;
+	lua_pushinteger(L, session);
+	return 1;
 }
 
 static int
 lcleanupsem(lua_State *L) {
 	const char * memdbname = lua_tostring(L, 1);
 	luaL_argcheck(L, memdbname != NULL, 1, "memdbname can't be null");
+	cleanupsem( memdbname );
+	return 0;
+}
+
+static int
+lbegin(lua_State *L) {
+	int session = lua_tointeger(L, 1);
+	int r = cli_attach( session );
+	if( r != cli_ok )
+		return luaL_error(L, "Failed to begin(%d)", r);
+	return 0;
+}
+
+static int
+lcommit(lua_State *L) {
+	int session = lua_tointeger(L, 1);
+	int r = cli_commit(session);
+	if( r != cli_ok )
+		return luaL_error(L, "Failed to commit(%d)", r);
+	r = cli_detach(session, cli_commit_on_detach);
+	if( r != cli_ok )
+		return luaL_error(L, "Failed to detach(%d)", r);
+	return 0;
+}
+
+static int
+lrollback(lua_State *L) {
+	int session = lua_tointeger(L, 1);
+	int r = cli_abort(session);
+	if( r != cli_ok )
+		return luaL_error(L, "Failed to rollback(%d)", r);
+	r = cli_detach(session, cli_commit_on_detach);
+	if( r != cli_ok )
+		return luaL_error(L, "Failed to detach(%d)", r);
+	return 0;
+}
+
+static int
+lclose(lua_State *L) {
+	const char * memdbname = lua_tostring(L, 1);
+	luaL_argcheck(L, memdbname != NULL, 1, "memdbname can't be null");
+	int session = lua_tointeger(L, 2);
+	cli_close(session);
 	cleanupsem( memdbname );
 	return 0;
 }
@@ -57,6 +101,10 @@ luaopen_dbcache_core(lua_State *L) {
 	luaL_Reg l[] = {
 		{ "init", linit },
 		{ "cleanupsem", lcleanupsem },
+		{ "begin", lbegin },
+		{ "commit", lcommit },
+		{ "rollback", lrollback },
+		{ "close", lclose },
 		{ NULL, NULL },
 	};
 
