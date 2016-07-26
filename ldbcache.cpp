@@ -96,10 +96,11 @@ lclose(lua_State *L) {
 	return 0;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 /* table record define */
 struct tb_activity_record {
 	cli_int8_t activity_id;
-	char *activity_name;
+	char activity_name[100];
 };
 
 /* table field define */
@@ -120,16 +121,30 @@ ltest(lua_State *L) {
 	struct tb_activity_record t;
 	memset(&t, 0x00, sizeof(t));
 	t.activity_id = 0xFFFFFFFFFFFFFFFF;
-	t.activity_name = "this is a activity name";
-	printf("before insert 0x%08X \n", t.activity_name);
-	// snprintf(t.activity_name, sizeof(t.activity_name), "%s", "this is activity name");
+	strcpy(t.activity_name, "this is a activity name");
 
-	r = cli_insert_struct(session, "tb_activity", &t, NULL);
-	if ( r != cli_ok ) {
-		return luaL_error(L, "Failed to insert(%d)", r);
+	int statement = cli_statement(session, "insert info tb_activity");
+	if ( statement < 0 ) {
+		return luaL_error(L, "Failed to create statement with code(%d)", statement);
 	}
 
-	int statement = cli_prepare_query(session, 
+	if( ( r = cli_column(statement, "activity_id", cli_int8, NULL, &t.activity_id ) != cli_ok ) ||
+		( r = cli_column(statement, "activity_name", cli_asciiz, NULL, t.activity_name ) != cli_ok ) ) {
+		return luaL_error(L, "Failed to call cli_column with code(%d)", r);
+	}
+
+	cli_oid_t oid;
+	r = cli_insert(statement, &oid);
+	if ( r != cli_ok ) {
+		return luaL_error(L, "Failed to insert with code(%d)", r);
+	}
+
+	r = cli_free(statement);
+	if ( r != cli_ok ) {
+		return luaL_error(L, "Failed to free statement with code(%d)", r);
+	}
+
+	statement = cli_prepare_query(session, 
 		"select * from tb_activity where activity_id = %li");
 	if ( statement < 0 ) {
 		return luaL_error(L, "Failed to prepare query with code(%d)", statement);
