@@ -99,11 +99,13 @@ lclose(lua_State *L) {
 /* table record define */
 struct tb_activity_record {
 	cli_int8_t activity_id;
+	char *activity_name;
 };
 
 /* table field define */
 struct cli_field_descriptor tb_activity_descriptor[] = {
 		{ cli_int8, cli_indexed, "activity_id", },
+		{ cli_asciiz, 0, "activity_name" },
 };
 
 static int
@@ -116,7 +118,12 @@ ltest(lua_State *L) {
 	}
 	
 	struct tb_activity_record t;
+	memset(&t, 0x00, sizeof(t));
 	t.activity_id = 0xFFFFFFFFFFFFFFFF;
+	t.activity_name = "this is a activity name";
+	printf("before insert 0x%08X \n", t.activity_name);
+	// snprintf(t.activity_name, sizeof(t.activity_name), "%s", "this is activity name");
+
 	r = cli_insert_struct(session, "tb_activity", &t, NULL);
 	if ( r != cli_ok ) {
 		return luaL_error(L, "Failed to insert(%d)", r);
@@ -142,8 +149,9 @@ ltest(lua_State *L) {
 		if (r != cli_ok) {
 			return luaL_error(L, "Failed to get next with code(%d)", r);
 		}
-
-		printf("Record activity_id(0x%llX) \n", rt.activity_id);
+		
+		printf("after insert 0x%08X \n", rt.activity_name);
+		printf("Record activity_id(0x%llX) activity_name(%s) \n", rt.activity_id, rt.activity_name);
 	}
 
 	return 0;
