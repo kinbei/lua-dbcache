@@ -116,7 +116,7 @@ ltest(lua_State *L) {
 	}
 	
 	struct tb_activity_record t;
-	t.activity_id = 0x7FFFFFFFFFFFFFFF;
+	t.activity_id = 0xFFFFFFFFFFFFFFFF;
 	r = cli_insert_struct(session, "tb_activity", &t, NULL);
 	if ( r != cli_ok ) {
 		return luaL_error(L, "Failed to insert(%d)", r);
@@ -129,9 +129,21 @@ ltest(lua_State *L) {
 	}
 	
 	struct tb_activity_record rt;
-	r = cli_execute_query(statement, cli_view_only, &rt, (cli_int8_t)0x7FFFFFFFFFFFFFFF);
-	if (r > 0) {
-		printf("activity(%lld) \n", rt.activity_id);
+	memset(&rt, 0x00, sizeof(rt));
+	r = cli_execute_query(statement, cli_view_only, &rt, (cli_int8_t)0xFFFFFFFFFFFFFFFF);
+	if (r < 0) {
+		return luaL_error(L, "Failed to execute query with code(%d)", r);
+	}
+
+	int i = 0;
+	int n = r;
+	for ( i = 0; i < n; i++ ) {
+		r = cli_get_next(statement);
+		if (r != cli_ok) {
+			return luaL_error(L, "Failed to get next with code(%d)", r);
+		}
+
+		printf("Record activity_id(0x%llX) \n", rt.activity_id);
 	}
 
 	return 0;

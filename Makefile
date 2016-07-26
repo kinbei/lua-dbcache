@@ -5,7 +5,7 @@ all : \
 .PHONY : fastdb
 
 fastdb : 
-	cd fastdb && ./configure --enable-diskless --prefix=$(CURDIR)/fastdb/output/ && make && make install
+	cd fastdb && ./configure --enable-diskless --enable-debug --prefix=$(CURDIR)/fastdb/output/ && make && make install
 
 # ./mysql : ./mysql.c
 #	gcc -Wall -g -DDEBUG -fPIC -o $@ $^ -I/opt/local/mysql/include/ -L/opt/local/mysql/lib/ -lmysqlclient
