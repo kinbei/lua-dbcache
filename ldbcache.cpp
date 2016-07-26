@@ -123,7 +123,7 @@ ltest(lua_State *L) {
 	t.activity_id = 0xFFFFFFFFFFFFFFFF;
 	strcpy(t.activity_name, "this is a activity name");
 
-	int statement = cli_statement(session, "insert info tb_activity");
+	int statement = cli_statement(session, "insert into tb_activity");
 	if ( statement < 0 ) {
 		return luaL_error(L, "Failed to create statement with code(%d)", statement);
 	}
@@ -144,28 +144,34 @@ ltest(lua_State *L) {
 		return luaL_error(L, "Failed to free statement with code(%d)", r);
 	}
 
-	statement = cli_prepare_query(session, 
-		"select * from tb_activity where activity_id = %li");
+	statement = cli_statement(session, 
+		"select * from tb_activity where activity_id = %activity_id");
 	if ( statement < 0 ) {
 		return luaL_error(L, "Failed to prepare query with code(%d)", statement);
 	}
-	
+
 	struct tb_activity_record rt;
 	memset(&rt, 0x00, sizeof(rt));
-	r = cli_execute_query(statement, cli_view_only, &rt, (cli_int8_t)0xFFFFFFFFFFFFFFFF);
-	if (r < 0) {
-		return luaL_error(L, "Failed to execute query with code(%d)", r);
+	
+	if( ( r = cli_column(statement, "activity_id", cli_int8, NULL, &rt.activity_id ) != cli_ok ) ||
+		( r = cli_column(statement, "activity_name", cli_asciiz, NULL, rt.activity_name ) != cli_ok ) ) {
+		return luaL_error(L, "Failed to call cli_column with code(%d)", r);
 	}
 
-	int i = 0;
-	int n = r;
-	for ( i = 0; i < n; i++ ) {
-		r = cli_get_next(statement);
-		if (r != cli_ok) {
-			return luaL_error(L, "Failed to get next with code(%d)", r);
-		}
-		
-		printf("after insert 0x%08X \n", rt.activity_name);
+	cli_int8_t n = 0xFFFFFFFFFFFFFFFF;
+	if ((r = cli_parameter(statement, "%activity_id", cli_int8, &n)) != cli_ok )
+    {
+        fprintf(stderr, "cli_parameter failed with code %d\n", r);
+        return EXIT_FAILURE;
+    }
+
+	r = cli_fetch(statement, cli_view_only);
+	if (r < 0 ) { 
+        fprintf(stderr, "cli_fetch 1 returns %d instead of 1\n", r);
+        return EXIT_FAILURE;
+    }
+
+	while ((r = cli_get_next(statement)) == cli_ok) { 	
 		printf("Record activity_id(0x%llX) activity_name(%s) \n", rt.activity_id, rt.activity_name);
 	}
 
