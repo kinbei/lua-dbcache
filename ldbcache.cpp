@@ -20,20 +20,20 @@ linit(lua_State *L) {
 	const char * memdbname = lua_tostring(L, 1);
 	luaL_argcheck(L, memdbname != NULL, 1, "memdbname can't be null");
 	size_t initsize = lua_tointeger(L, 2);
-	if (initsize) {
-		initsize = 1024;
+	if (!initsize) {
+		initsize = 100;
 	}
 	size_t incsize = lua_tointeger(L, 3);
-	if (incsize) {
+	if (!incsize) {
 		incsize = 20;
 	}
 	size_t idxsize = lua_tointeger(L, 4);
-	if (idxsize) {
-		idxsize = 1024;
+	if (!idxsize) {
+		idxsize = 100;
 	}
 	size_t maxsize = lua_tointeger(L, 5);
-		if (maxsize) {
-		maxsize = 2048;
+		if (!maxsize) {
+		maxsize = 200;
 	}
 
 	cleanupsem( memdbname );
