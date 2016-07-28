@@ -63,4 +63,4 @@ if not ok then
 else
 	dbcache.commit()
 end
-print("Testcase success!")
+print("Testcase finish!")
