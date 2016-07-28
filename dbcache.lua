@@ -4,9 +4,11 @@ M.session = nil
 
 local c = require "dbcache.core"
 
-function M.init(memdbname, ...)
-	M.session = c.init(memdbname, ...)
+function M.opendb(memdbname, ...)
+	M.session = c.opendb(memdbname, ...)
 	M.memdbname = memdbname
+
+	c.loadtable()
 end
 
 function M.begin()
@@ -21,17 +23,18 @@ function M.rollback()
 	c.rollback(M.session)
 end
 
-function M.close()
+function M.closedb()
 	if M.memdbname then
-		c.close(M.memdbname, M.session)
+		c.closedb(M.memdbname, M.session)
+		M.memdbname = nil
 	end
 end
 
-function M.test()
-	c.test(M.session)
+function M.gettable(tablename)
+	return c.gettable(tablename)
 end
 
 return setmetatable(M, { __gc = function(self)
-	M.close()
+	M.closedb()
 end }
 )

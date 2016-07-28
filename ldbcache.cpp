@@ -14,6 +14,10 @@ extern "C" {
 
 #define MB 1024*1024
 
+#define FIELD_TABLE_OBJECT 1
+
+static int g_session = 0;
+
 // memdbname, initsize, incsize, idxsize, maxsize
 static int
 linit(lua_State *L) {
@@ -37,11 +41,11 @@ linit(lua_State *L) {
 	}
 
 	cleanupsem( memdbname );
-	int session = cli_create(memdbname, NULL, 0, cli_open_default, initsize*MB, incsize*MB, idxsize*MB, maxsize*MB);
-	if ( session < 0 )
-		return luaL_error(L, "Failed to create memdb(%d)", session);
+	g_session = cli_create(memdbname, NULL, 0, cli_open_default, initsize*MB, incsize*MB, idxsize*MB, maxsize*MB);
+	if ( g_session < 0 )
+		return luaL_error(L, "Failed to create memdb(%d)", g_session);
 
-	lua_pushinteger(L, session);
+	lua_pushinteger(L, g_session);
 	return 1;
 }
 
@@ -99,11 +103,8 @@ lclose(lua_State *L) {
 static int
 lgettable(lua_State *L) {
 	const char *tablename = lua_tostring(L, 1);
-
 	lua_pushstring(L, tablename);
-	lua_gettable(L, lua_upvalueindex(1));
-	lua_rawget(L, -1);
-
+	lua_gettable(L, lua_upvalueindex(FIELD_TABLE_OBJECT));
 	return 1;
 }
 
@@ -111,7 +112,7 @@ lgettable(lua_State *L) {
 /* table record define */
 struct tb_activity_record {
 	cli_int8_t activity_id;
-	char *activity_name;
+	char activity_name[100];
 	cli_int8_t status;
 };
 
@@ -122,19 +123,14 @@ struct cli_field_descriptor tb_activity_descriptor[] = {
 		{ cli_int8, cli_indexed, "status", },		
 };
 
-/*
 static int
-create_table(lua_State *L, int session) {
-	int rc = cli_create_table(session, "tb_activity", sizeof(tb_activity_descriptor)/sizeof(cli_field_descriptor), tb_activity_descriptor);
+lloadtable(lua_State *L) {
+	int rc = cli_create_table(g_session, "tb_activity", sizeof(tb_activity_descriptor)/sizeof(cli_field_descriptor), tb_activity_descriptor);
 	if ( rc != cli_ok ) {		
 		return luaL_error(L, "Failed to create table with code(%d)", rc);
 	}
 	return 0;
 }
-*/
-
-/* save temp value of per record */
-tb_activity_record _tb_activity_record;
 
 /////////////////////////////////////////////////////////////////////////
 struct dbrecordset {
@@ -164,7 +160,7 @@ static int
 tb_activity_setactivity_name(lua_State *L) {
 	size_t len = 0;
 	const char *v = lua_tolstring(L, 1, &len);
-	if (len < sizeof(g_dbrecord._tb_activity_record.activity_name)-1 ) {
+	if (len > sizeof(g_dbrecord._tb_activity_record.activity_name)-1 ) {
 		len = sizeof(g_dbrecord._tb_activity_record.activity_name)-1;
 	}
 	memcpy(g_dbrecord._tb_activity_record.activity_name, v, len);
@@ -179,9 +175,26 @@ tb_activity_setstatus(lua_State *L) {
 }
 
 static int
+tb_activity_getactivity_id(lua_State *L) {
+	lua_pushinteger(L, g_dbrecord._tb_activity_record.activity_id);
+	return 1;
+}
+
+static int
+tb_activity_getactivity_name(lua_State *L) {
+	lua_pushstring(L, g_dbrecord._tb_activity_record.activity_name);
+	return 1;
+}
+
+static int
+tb_activity_getstatus(lua_State *L) {
+	lua_pushinteger(L, g_dbrecord._tb_activity_record.status);
+	return 1;
+}
+
+static int
 tb_activity_insert(lua_State *L) {
-	int session = lua_tointeger(L, 1);
-	int statement = cli_statement(session, "insert info tb_activity");
+	int statement = cli_statement(g_session, "insert into tb_activity");
 	if ( statement < 0 ) {
 		return luaL_error(L, "Failed to create statement with code(%d)", statement);
 	}
@@ -208,59 +221,175 @@ tb_activity_insert(lua_State *L) {
 	return 0;
 }
 
+static tb_activity_record find_record;
+
 static int
 tb_activity_prepare(lua_State *L) {
-	const char *subsql = lua_tostring(L, 2);
-	int session = lua_tointeger(L, 1);
-
+	const char *subsql = lua_tostring(L, 1);
 	char sql[255] = {0};
 	snprintf(sql, sizeof(sql), "select * from tb_activity where %s", subsql);
-	g_statement._tb_activity_statement = cli_statement(session, sql);
+	g_statement._tb_activity_statement = cli_statement(g_session, sql);
 	if ( g_statement._tb_activity_statement < 0 ) {
 		return luaL_error(L, "Failed to prepare query with code(%d)", g_statement._tb_activity_statement);
 	}
 
+	memset(&g_dbrecord._tb_activity_record, 0x00, sizeof(g_dbrecord._tb_activity_record));
+	memset(&find_record, 0x00, sizeof(find_record));
+
+	int rc;
+	if ((rc=cli_column(g_statement._tb_activity_statement, "activity_id", cli_int8, NULL, &g_dbrecord._tb_activity_record.activity_id)) != cli_ok
+        || (rc=cli_column(g_statement._tb_activity_statement, "activity_name", cli_asciiz, NULL, g_dbrecord._tb_activity_record.activity_name)) != cli_ok 
+		|| (rc=cli_column(g_statement._tb_activity_statement, "status", cli_int8, NULL, &g_dbrecord._tb_activity_record.status)) != cli_ok 
+		) {
+		return luaL_error(L, "cli_column failed with code %d\n", rc);
+    }
 	return 0;
 }
 
-/*
 static int
-tb_activity_setactivity_id(lua_State *L) {
-	int rc = cli_column(g_statement._tb_activity_statement, "activity_id", cli_int8, NULL, &g_dbrecord._tb_activity_record.activity_id);
-	if ( rc != cli_ok ) {
-		return luaL_error(L, "Failed to cli_column with code(%d)", rc);
-	}
+tb_activity_findsetactivity_id(lua_State *L) {
+	find_record.activity_id = lua_tointeger(L, 1);
+
+	int rc;
+	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_id", cli_int8, &find_record.activity_id)) != cli_ok ) {
+        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+    }
 	return 0;
 }
-*/
 
-/*
 static int
-tb_activity_setactivity_name(lua_State *L) {
-	int rc = cli_column(g_statement._tb_activity_statement, "activity_name", cli_asciiz, NULL, g_dbrecord._tb_activity_record.activity_name);
-	if ( rc != cli_ok ) {
-		return luaL_error(L, "Failed to cli_column with code(%d)", rc);
+tb_activity_findsetactivity_name(lua_State *L) {
+	size_t len = 0;
+	const char *v = lua_tolstring(L, 1, &len);
+	if (len > sizeof(find_record.activity_name)-1 ) {
+		len = sizeof(find_record.activity_name)-1;
 	}
+	memcpy(find_record.activity_name, v, len);
+
+	int rc;
+	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_name", cli_asciiz, (void*)find_record.activity_name)) != cli_ok ) {
+        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+    }
 	return 0;
 }
-*/
 
-/*
 static int
-tb_activity_setstatus(lua_State *L) {
-	int rc = cli_column(g_statement._tb_activity_statement, "status", cli_int8, NULL, g_dbrecord._tb_activity_record.status);
-	if ( rc != cli_ok ) {
-		return luaL_error(L, "Failed to cli_column with code(%d)", rc);
-	}
+tb_activity_findsetstatus(lua_State *L) {
+	find_record.status = lua_tointeger(L, 1);
+
+	int rc;
+	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%status", cli_int8, &find_record.status)) != cli_ok ) {
+        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+    }
 	return 0;
-}*/
+}
+
+static int
+tb_activity_find(lua_State *L) {
+	// cli_unbound_parameter will be coredump
+	int rc = cli_fetch(g_statement._tb_activity_statement, cli_view_only);
+    if ( rc < 0 ) { 
+		return luaL_error(L, "cli_fetch failed with code %d", rc);
+    }
+	lua_pushinteger(L, rc);
+	return 1;
+}
+
+static int
+tb_activity_next(lua_State *L) {
+	int rc;
+	if ( (rc = cli_get_next(g_statement._tb_activity_statement)) == cli_ok ) {
+		lua_pushboolean(L, true);
+	}
+	else {
+		lua_pushboolean(L, false);
+	}
+	return 1;
+}
+
+static int
+tb_activity_update(lua_State *L) {
+	//todo freee statement when error occur
+	int rc;
+	int statement = cli_statement(g_session, "select * from tb_activity where activity_id = %activity_id");
+    if (statement < 0) { 
+        return luaL_error(L, "cli_statement failed with code %d", statement);
+    }
+
+	tb_activity_record r;
+	memset(&r, 0x00, sizeof(r));
+
+	if ((rc=cli_column(statement, "activity_id", cli_int8, NULL, &r.activity_id)) != cli_ok
+        || (rc=cli_column(statement, "activity_name", cli_asciiz, NULL, r.activity_name)) != cli_ok
+		|| (rc=cli_column(statement, "status", cli_int8, NULL, &r.status)) != cli_ok ) {
+        return luaL_error(L, "cli_column failed with code %d", rc);
+    }
+
+    if ( (rc = cli_parameter(statement, "%activity_id", cli_int8, &g_dbrecord._tb_activity_record.activity_id)) != cli_ok ) {
+        return luaL_error(L, "cli_parameter failed with code %d", rc);
+    }
+
+    rc = cli_fetch(statement, cli_for_update);
+    if ( rc < 0 ) { 
+		return luaL_error(L, "cli_fetch failed with code %d", rc);
+    }
+
+	while ((rc = cli_get_next(statement)) == cli_ok) { 
+			r.activity_id = g_dbrecord._tb_activity_record.activity_id;
+			memcpy(r.activity_name, g_dbrecord._tb_activity_record.activity_name, sizeof(r.activity_name));
+			r.status = g_dbrecord._tb_activity_record.status;
+
+			rc = cli_update(statement);
+			if ( rc != cli_ok ) {
+				return luaL_error(L, "cli_update failed with code %d", rc);
+			}
+    }
+
+	rc = cli_free(statement);
+    if (rc != cli_ok) { 
+        return luaL_error(L, "cli_free failed with code %d", rc);
+    }
+
+	return 0;
+}
+
+static int
+tb_activity_remove(lua_State *L) {
+	//todo freee statement when error occur
+	int rc;
+	int statement = cli_statement(g_session, "select * from tb_activity where activity_id = %activity_id");
+    if (statement < 0) { 
+        return luaL_error(L, "cli_statement failed with code %d", statement);
+    }
+
+	if ( (rc = cli_parameter(statement, "%activity_id", cli_int8, &g_dbrecord._tb_activity_record.activity_id)) != cli_ok ) {
+        return luaL_error(L, "cli_parameter failed with code %d", rc);
+    }
+
+    rc = cli_fetch(statement, cli_for_update);
+    if ( rc < 0 ) { 
+        return luaL_error(L, "cli_fetch failed with code %d", rc);
+    }
+
+	rc = cli_remove(statement);
+	if ( rc != cli_ok ) {
+		return luaL_error(L, "cli_remove failed with code %d", rc);
+	}
+
+	rc = cli_free(statement);
+    if (rc != cli_ok) { 
+        return luaL_error(L, "cli_free failed with code %d", rc);
+    }
+
+	return 0;
+}
 
 #define DECLARE_FUNCTION(tablename, funcname) \
 do \
 { \
-	lua_pushcfunction(L, tablename##_##funcname ); \
 	lua_pushliteral(L, #funcname); \
-	lua_rawset(L, -2); \
+	lua_pushcfunction(L, tablename##_##funcname ); \
+	lua_settable(L, -3); \
 } \
 while (0); \
 
@@ -269,30 +398,42 @@ luaopen_dbcache_core(lua_State *L) {
 	luaL_checkversion(L);
 
 	luaL_Reg l[] = {
-		{ "init", linit },
+		{ "opendb", linit },
+		{ "loadtable", lloadtable },
 		{ "cleanupsem", lcleanupsem },
 		{ "begin", lbegin },
 		{ "commit", lcommit },
 		{ "rollback", lrollback },
-		{ "close", lclose },
+		{ "closedb", lclose },
 		{ "gettable", lgettable },
 		{ NULL, NULL },
 	};
 
 	luaL_newlib(L, l);
 
-	lua_newtable(L); // upvalue
+	// the order is the same with macros: FIELD_* (define top)
+	lua_newtable(L); // upvalue, all table object
 
 	// tb_activity
+	lua_pushliteral(L, "tb_activity");
 	lua_newtable(L);
 	DECLARE_FUNCTION(tb_activity, reset);
 	DECLARE_FUNCTION(tb_activity, setactivity_id);
 	DECLARE_FUNCTION(tb_activity, setactivity_name);
 	DECLARE_FUNCTION(tb_activity, setstatus);
+	DECLARE_FUNCTION(tb_activity, getactivity_id);
+	DECLARE_FUNCTION(tb_activity, getactivity_name);
+	DECLARE_FUNCTION(tb_activity, getstatus);
 	DECLARE_FUNCTION(tb_activity, insert);
 	DECLARE_FUNCTION(tb_activity, prepare);
-	lua_pushliteral(L, "tb_activity");
-	lua_rawset(L, -2);
+	DECLARE_FUNCTION(tb_activity, find);
+	DECLARE_FUNCTION(tb_activity, next);
+	DECLARE_FUNCTION(tb_activity, findsetactivity_id);
+	DECLARE_FUNCTION(tb_activity, findsetactivity_name);
+	DECLARE_FUNCTION(tb_activity, findsetstatus);
+	DECLARE_FUNCTION(tb_activity, update);
+	DECLARE_FUNCTION(tb_activity, remove);
+	lua_settable(L, -3);
 
 	// sharing previous table as upvalue
 	luaL_setfuncs(L, l, 1);
