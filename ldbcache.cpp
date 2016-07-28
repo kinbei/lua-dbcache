@@ -16,6 +16,43 @@ extern "C" {
 
 #define FIELD_TABLE_OBJECT 1
 
+#define CASE_ERROR_CODE(x) \
+	case x: \
+		return #x; \
+		break; \
+
+static const char*
+get_cli_error_msg(int cli_code) {
+	switch(cli_code) {
+		CASE_ERROR_CODE(cli_bad_address);
+		CASE_ERROR_CODE(cli_connection_refused);
+		CASE_ERROR_CODE(cli_database_not_found);
+		CASE_ERROR_CODE(cli_bad_statement);
+		CASE_ERROR_CODE(cli_parameter_not_found);
+		CASE_ERROR_CODE(cli_unbound_parameter);
+		CASE_ERROR_CODE(cli_column_not_found);
+		CASE_ERROR_CODE(cli_incompatible_type);
+		CASE_ERROR_CODE(cli_network_error);
+		CASE_ERROR_CODE(cli_runtime_error);
+		CASE_ERROR_CODE(cli_bad_descriptor);
+		CASE_ERROR_CODE(cli_unsupported_type);
+		CASE_ERROR_CODE(cli_not_found);
+		CASE_ERROR_CODE(cli_not_update_mode);
+		CASE_ERROR_CODE(cli_table_not_found);
+		CASE_ERROR_CODE(cli_not_all_columns_specified);
+		CASE_ERROR_CODE(cli_not_fetched);
+		CASE_ERROR_CODE(cli_already_updated);
+		CASE_ERROR_CODE(cli_table_already_exists);
+		CASE_ERROR_CODE(cli_not_implemented);
+		CASE_ERROR_CODE(cli_xml_parse_error);
+		CASE_ERROR_CODE(cli_backup_failed);
+		default:
+			return "Unknown error";
+			break;
+	}
+	return "";
+}
+
 static int g_session = 0;
 
 // memdbname, initsize, incsize, idxsize, maxsize
@@ -43,7 +80,7 @@ linit(lua_State *L) {
 	cleanupsem( memdbname );
 	g_session = cli_create(memdbname, NULL, 0, cli_open_default, initsize*MB, incsize*MB, idxsize*MB, maxsize*MB);
 	if ( g_session < 0 )
-		return luaL_error(L, "Failed to create memdb(%d)", g_session);
+		return luaL_error(L, "Failed to create memdb(%s)", get_cli_error_msg(g_session));
 
 	lua_pushinteger(L, g_session);
 	return 1;
@@ -62,7 +99,7 @@ lbegin(lua_State *L) {
 	int session = lua_tointeger(L, 1);
 	int r = cli_attach( session );
 	if( r != cli_ok )
-		return luaL_error(L, "Failed to begin(%d)", r);
+		return luaL_error(L, "Failed to begin(%s)", get_cli_error_msg(r));
 	return 0;
 }
 
@@ -71,10 +108,10 @@ lcommit(lua_State *L) {
 	int session = lua_tointeger(L, 1);
 	int r = cli_commit(session);
 	if( r != cli_ok )
-		return luaL_error(L, "Failed to commit(%d)", r);
+		return luaL_error(L, "Failed to commit(%s)", get_cli_error_msg(r));
 	r = cli_detach(session, cli_commit_on_detach);
 	if( r != cli_ok )
-		return luaL_error(L, "Failed to detach(%d)", r);
+		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(r));
 	return 0;
 }
 
@@ -83,10 +120,10 @@ lrollback(lua_State *L) {
 	int session = lua_tointeger(L, 1);
 	int r = cli_abort(session);
 	if( r != cli_ok )
-		return luaL_error(L, "Failed to rollback(%d)", r);
+		return luaL_error(L, "Failed to rollback(%s)", get_cli_error_msg(r));
 	r = cli_detach(session, cli_commit_on_detach);
 	if( r != cli_ok )
-		return luaL_error(L, "Failed to detach(%d)", r);
+		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(r));
 	return 0;
 }
 
@@ -127,7 +164,7 @@ static int
 lloadtable(lua_State *L) {
 	int rc = cli_create_table(g_session, "tb_activity", sizeof(tb_activity_descriptor)/sizeof(cli_field_descriptor), tb_activity_descriptor);
 	if ( rc != cli_ok ) {		
-		return luaL_error(L, "Failed to create table with code(%d)", rc);
+		return luaL_error(L, "Failed to create table(%s)", get_cli_error_msg(rc));
 	}
 	return 0;
 }
@@ -196,7 +233,7 @@ static int
 tb_activity_insert(lua_State *L) {
 	int statement = cli_statement(g_session, "insert into tb_activity");
 	if ( statement < 0 ) {
-		return luaL_error(L, "Failed to create statement with code(%d)", statement);
+		return luaL_error(L, "Failed to create statement(%s)", get_cli_error_msg(statement));
 	}
 
 	int rc;
@@ -204,18 +241,18 @@ tb_activity_insert(lua_State *L) {
 		( rc = cli_column(statement, "activity_name", cli_asciiz, NULL, g_dbrecord._tb_activity_record.activity_name ) != cli_ok ) ||
 		( rc = cli_column(statement, "status", cli_int8, NULL, &g_dbrecord._tb_activity_record.status ) != cli_ok )
 		) {
-		return luaL_error(L, "Failed to call cli_column with code(%d)", rc);
+		return luaL_error(L, "Failed to call cli_column(%s)", get_cli_error_msg(rc));
 	}
 
 	cli_oid_t oid;
 	rc = cli_insert(statement, &oid);
 	if ( rc != cli_ok ) {
-		return luaL_error(L, "Failed to insert with code(%d)", rc);
+		return luaL_error(L, "Failed to insert(%s)", get_cli_error_msg(rc));
 	}
 
 	rc = cli_free(statement);
 	if ( rc != cli_ok ) {
-		return luaL_error(L, "Failed to free statement with code(%d)", rc);
+		return luaL_error(L, "Failed to free statement(%s)", get_cli_error_msg(rc));
 	}
 
 	return 0;
@@ -230,7 +267,7 @@ tb_activity_prepare(lua_State *L) {
 	snprintf(sql, sizeof(sql), "select * from tb_activity where %s", subsql);
 	g_statement._tb_activity_statement = cli_statement(g_session, sql);
 	if ( g_statement._tb_activity_statement < 0 ) {
-		return luaL_error(L, "Failed to prepare query with code(%d)", g_statement._tb_activity_statement);
+		return luaL_error(L, "Failed to prepare query(%s)", get_cli_error_msg(g_statement._tb_activity_statement));
 	}
 
 	memset(&g_dbrecord._tb_activity_record, 0x00, sizeof(g_dbrecord._tb_activity_record));
@@ -241,7 +278,7 @@ tb_activity_prepare(lua_State *L) {
         || (rc=cli_column(g_statement._tb_activity_statement, "activity_name", cli_asciiz, NULL, g_dbrecord._tb_activity_record.activity_name)) != cli_ok 
 		|| (rc=cli_column(g_statement._tb_activity_statement, "status", cli_int8, NULL, &g_dbrecord._tb_activity_record.status)) != cli_ok 
 		) {
-		return luaL_error(L, "cli_column failed with code %d", rc);
+		return luaL_error(L, "Failed to call cli_column(%s)", get_cli_error_msg(rc));
     }
 	return 0;
 }
@@ -252,7 +289,7 @@ tb_activity_findsetactivity_id(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_id", cli_int8, &find_record.activity_id)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
     }
 	return 0;
 }
@@ -268,7 +305,7 @@ tb_activity_findsetactivity_name(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_name", cli_asciiz, (void*)find_record.activity_name)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
     }
 	return 0;
 }
@@ -279,17 +316,16 @@ tb_activity_findsetstatus(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%status", cli_int8, &find_record.status)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
     }
 	return 0;
 }
 
 static int
 tb_activity_find(lua_State *L) {
-	// cli_unbound_parameter will be coredump
 	int rc = cli_fetch(g_statement._tb_activity_statement, cli_view_only);
     if ( rc < 0 ) { 
-		return luaL_error(L, "cli_fetch failed with code %d", rc);
+		return luaL_error(L, "Failed to call cli_fetch(%s)", get_cli_error_msg(rc));
     }
 	lua_pushinteger(L, rc);
 	return 1;
@@ -313,7 +349,7 @@ tb_activity_update(lua_State *L) {
 	int rc;
 	int statement = cli_statement(g_session, "select * from tb_activity where activity_id = %activity_id");
     if (statement < 0) { 
-        return luaL_error(L, "cli_statement failed with code %d", statement);
+        return luaL_error(L, "Failed to call cli_statement(%s)", get_cli_error_msg(statement));
     }
 
 	tb_activity_record r;
@@ -322,16 +358,16 @@ tb_activity_update(lua_State *L) {
 	if ((rc=cli_column(statement, "activity_id", cli_int8, NULL, &r.activity_id)) != cli_ok
         || (rc=cli_column(statement, "activity_name", cli_asciiz, NULL, r.activity_name)) != cli_ok
 		|| (rc=cli_column(statement, "status", cli_int8, NULL, &r.status)) != cli_ok ) {
-        return luaL_error(L, "cli_column failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_column(%s)", get_cli_error_msg(rc));
     }
 
     if ( (rc = cli_parameter(statement, "%activity_id", cli_int8, &g_dbrecord._tb_activity_record.activity_id)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
     }
 
     rc = cli_fetch(statement, cli_for_update);
     if ( rc < 0 ) { 
-		return luaL_error(L, "cli_fetch failed with code %d", rc);
+		return luaL_error(L, "Failed to call cli_fetch(%s)", get_cli_error_msg(rc));
     }
 
 	while ((rc = cli_get_next(statement)) == cli_ok) { 
@@ -341,13 +377,13 @@ tb_activity_update(lua_State *L) {
 
 			rc = cli_update(statement);
 			if ( rc != cli_ok ) {
-				return luaL_error(L, "cli_update failed with code %d", rc);
+				return luaL_error(L, "Failed to call cli_update(%s)", get_cli_error_msg(rc));
 			}
     }
 
 	rc = cli_free(statement);
     if (rc != cli_ok) { 
-        return luaL_error(L, "cli_free failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_free(%s)", get_cli_error_msg(rc));
     }
 
 	return 0;
@@ -359,26 +395,26 @@ tb_activity_remove(lua_State *L) {
 	int rc;
 	int statement = cli_statement(g_session, "select * from tb_activity where activity_id = %activity_id");
     if (statement < 0) { 
-        return luaL_error(L, "cli_statement failed with code %d", statement);
+        return luaL_error(L, "Failed to call cli_statement(%s)", get_cli_error_msg(statement));
     }
 
 	if ( (rc = cli_parameter(statement, "%activity_id", cli_int8, &g_dbrecord._tb_activity_record.activity_id)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
     }
 
     rc = cli_fetch(statement, cli_for_update);
     if ( rc < 0 ) { 
-        return luaL_error(L, "cli_fetch failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_fetch(%s)", get_cli_error_msg(rc));
     }
 
 	rc = cli_remove(statement);
 	if ( rc != cli_ok ) {
-		return luaL_error(L, "cli_remove failed with code %d", rc);
+		return luaL_error(L, "Failed to call cli_remove(%s)", get_cli_error_msg(rc));
 	}
 
 	rc = cli_free(statement);
     if (rc != cli_ok) { 
-        return luaL_error(L, "cli_free failed with code %d", rc);
+        return luaL_error(L, "Failed to call cli_free(%s)", get_cli_error_msg(rc));
     }
 
 	return 0;
