@@ -241,7 +241,7 @@ tb_activity_prepare(lua_State *L) {
         || (rc=cli_column(g_statement._tb_activity_statement, "activity_name", cli_asciiz, NULL, g_dbrecord._tb_activity_record.activity_name)) != cli_ok 
 		|| (rc=cli_column(g_statement._tb_activity_statement, "status", cli_int8, NULL, &g_dbrecord._tb_activity_record.status)) != cli_ok 
 		) {
-		return luaL_error(L, "cli_column failed with code %d\n", rc);
+		return luaL_error(L, "cli_column failed with code %d", rc);
     }
 	return 0;
 }
@@ -252,7 +252,7 @@ tb_activity_findsetactivity_id(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_id", cli_int8, &find_record.activity_id)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+        return luaL_error(L, "cli_parameter failed with code %d", rc);
     }
 	return 0;
 }
@@ -268,7 +268,7 @@ tb_activity_findsetactivity_name(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%activity_name", cli_asciiz, (void*)find_record.activity_name)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+        return luaL_error(L, "cli_parameter failed with code %d", rc);
     }
 	return 0;
 }
@@ -279,7 +279,7 @@ tb_activity_findsetstatus(lua_State *L) {
 
 	int rc;
 	if ( (rc = cli_parameter(g_statement._tb_activity_statement, "%status", cli_int8, &find_record.status)) != cli_ok ) {
-        return luaL_error(L, "cli_parameter failed with code %d\n", rc);
+        return luaL_error(L, "cli_parameter failed with code %d", rc);
     }
 	return 0;
 }
