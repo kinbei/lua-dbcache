@@ -56,33 +56,33 @@ lcleanupsem(lua_State *L) {
 static int
 lbegin(lua_State *L) {
 	int session = lua_tointeger(L, 1);
-	int r = cli_attach( session );
-	if( r != cli_ok )
-		return luaL_error(L, "Failed to begin(%s)", get_cli_error_msg(r));
+	int rc = cli_attach( session );
+	if( rc != cli_ok )
+		return luaL_error(L, "Failed to begin(%s)", get_cli_error_msg(rc));
 	return 0;
 }
 
 static int
 lcommit(lua_State *L) {
 	int session = lua_tointeger(L, 1);
-	int r = cli_commit(session);
-	if( r != cli_ok )
-		return luaL_error(L, "Failed to commit(%s)", get_cli_error_msg(r));
-	r = cli_detach(session, cli_commit_on_detach);
-	if( r != cli_ok )
-		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(r));
+	int rc = cli_commit(session);
+	if( rc != cli_ok )
+		return luaL_error(L, "Failed to commit(%s)", get_cli_error_msg(rc));
+	rc = cli_detach(session, cli_commit_on_detach);
+	if( rc != cli_ok )
+		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(rc));
 	return 0;
 }
 
 static int
 lrollback(lua_State *L) {
 	int session = lua_tointeger(L, 1);
-	int r = cli_abort(session);
-	if( r != cli_ok )
-		return luaL_error(L, "Failed to rollback(%s)", get_cli_error_msg(r));
-	r = cli_detach(session, cli_commit_on_detach);
-	if( r != cli_ok )
-		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(r));
+	int rc = cli_abort(session);
+	if( rc != cli_ok )
+		return luaL_error(L, "Failed to rollback(%s)", get_cli_error_msg(rc));
+	rc = cli_detach(session, cli_commit_on_detach);
+	if( rc != cli_ok )
+		return luaL_error(L, "Failed to detach(%s)", get_cli_error_msg(rc));
 	return 0;
 }
 
