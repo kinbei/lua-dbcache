@@ -51,10 +51,25 @@ local function dbopt()
 	end
 	tb_activity.reset()
 	tb_activity.prepare("")
-	assert( tb_activity.find() == 0 )
+	assert( tb_activity.find() == 7 )
+
+	-- test mysql sync
+	tb_activity.reset()
+	tb_activity.prepare("activity_id = %activity_id")
+	tb_activity.findsetactivity_id(200)
+	tb_activity.find()
+	while tb_activity.next() do
+		tb_activity.remove()
+	end
+
+	tb_activity.reset()
+	tb_activity.setactivity_id(200)
+	tb_activity.setactivity_name("test mysql sync")
+	tb_activity.setstatus(1)
+	tb_activity.insert()
 end
 
-dbcache.opendb("test")
+dbcache.opendb("test", "192.168.8.196", "root", "hQK_DWbBuzl", "testdb", 4400)
 dbcache.begin()
 local ok, err = xpcall(dbopt, debug.traceback)
 if not ok then
@@ -63,4 +78,6 @@ if not ok then
 else
 	dbcache.commit()
 end
+
+dbcache.tickcount()
 print("Testcase finish!")

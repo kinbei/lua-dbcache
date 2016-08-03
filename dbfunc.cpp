@@ -50,8 +50,17 @@ tb_activity_getstatus(lua_State *L) {
 	return 1;
 }
 
-int
-tb_activity_insert(lua_State *L) {
+int tb_activity_insert_db(lua_State *L) {
+	tb_activity_record& record = g_dbrecord._tb_activity_record;
+	sqldao dao;
+	dao.type = INSERT_SQL;
+	dao.sql = (char*)malloc(1000);
+	snprintf(dao.sql, 1000, "insert into tb_activity values (%ld, '%s', %ld);", record.activity_id, record.activity_name, record.status);
+	queue_push(&g_sqlqueue, &dao);
+	return 0;
+}
+
+int tb_activity_insert_mdb(lua_State *L) {
 	int statement = cli_statement(g_session, "insert into tb_activity");
 	if ( statement < 0 ) {
 		return luaL_error(L, "Failed to create statement(%s)", get_cli_error_msg(statement));
@@ -75,7 +84,13 @@ tb_activity_insert(lua_State *L) {
 	if ( rc != cli_ok ) {
 		return luaL_error(L, "Failed to free statement(%s)", get_cli_error_msg(rc));
 	}
+	return 0;
+}
 
+int
+tb_activity_insert(lua_State *L) {
+	tb_activity_insert_mdb(L);
+	tb_activity_insert_db(L);
 	return 0;
 }
 
@@ -198,6 +213,13 @@ tb_activity_update(lua_State *L) {
 			if ( rc != cli_ok ) {
 				return luaL_error(L, "Failed to call cli_update(%s)", get_cli_error_msg(rc));
 			}
+
+			tb_activity_record& record = g_dbrecord._tb_activity_record;
+			sqldao dao;
+			dao.type = UPDATE_SQL;
+			dao.sql = (char*)malloc(500);
+			snprintf(dao.sql, 500, "update tb_activity set activity_name = '%s', status = %ld where activity_id = %ld;", record.activity_name, record.status, record.activity_id);
+			queue_push(&g_sqlqueue, &dao);
     }
 
 	rc = cli_free(statement);
@@ -231,6 +253,13 @@ tb_activity_remove(lua_State *L) {
 		return luaL_error(L, "Failed to call cli_remove(%s)", get_cli_error_msg(rc));
 	}
 
+	tb_activity_record& record = g_dbrecord._tb_activity_record;
+	sqldao dao;
+	dao.type = DELETE_SQL;
+	dao.sql = (char*)malloc(500);
+	snprintf(dao.sql, 500, "delete from tb_activity where activity_id = %ld;", record.activity_id);
+	queue_push(&g_sqlqueue, &dao);
+	
 	rc = cli_free(statement);
     if (rc != cli_ok) { 
         return luaL_error(L, "Failed to call cli_free(%s)", get_cli_error_msg(rc));
@@ -248,7 +277,7 @@ do \
 } \
 while (0); \
 
-void create_table_object(lua_State *L) {
+void create_table_objects(lua_State *L) {
 	// tb_activity
 	lua_pushliteral(L, "tb_activity");
 	lua_newtable(L);
@@ -271,8 +300,44 @@ void create_table_object(lua_State *L) {
 	lua_settable(L, -3);
 }
 
+int load_tables(lua_State *L) {
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+
+	if ( mysql_real_query(g_mysqlconn, "begin", 5) != 0 ) {
+		return luaL_error(L, "Failed to mysql_real_query, error(%s)", mysql_error(g_mysqlconn));
+	}
+	
+	// tb_activity
+	if ( mysql_real_query(g_mysqlconn, "select * from tb_activity", 25) ) {
+		return luaL_error(L, "Failed to mysql_real_query, error(%s)", mysql_error(g_mysqlconn));
+	}
+	res = mysql_use_result(g_mysqlconn);
+	while ( (row = mysql_fetch_row(res)) ) {
+		tb_activity_reset(L);
+		tb_activity_record &record = g_dbrecord._tb_activity_record;
+		record.activity_id = atoi(row[0]);
+		size_t len = strlen(row[1]);
+		if (len > sizeof(g_dbprecord._tb_activity_record.activity_name)-1 ) {
+			len = sizeof(g_dbprecord._tb_activity_record.activity_name)-1;
+		}
+		memcpy(record.activity_name, row[1], len);
+		record.status = atoi(row[2]);
+		tb_activity_insert_mdb(L);
+	}
+
+	if ( mysql_commit(g_mysqlconn) != 0 ) {
+		return luaL_error(L, "Failed to mysql_commit, error(%s)", mysql_error(g_mysqlconn));
+	}
+
+	return 0;
+}
 
 int g_session = 0;
 struct dbrecord g_dbrecord;
 struct dbprecord g_dbprecord;
 struct dbstatement g_statement;
+
+MYSQL *g_mysqlconn = NULL;
+
+queue g_sqlqueue;

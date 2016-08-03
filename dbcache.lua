@@ -30,6 +30,10 @@ function M.closedb()
 	end
 end
 
+function M.tickcount()
+	c.tickcount()
+end
+
 function M.gettable(tablename)
 	return c.gettable(tablename)
 end
