@@ -1,27 +1,47 @@
 local dbcache = require "dbcache"
 
+-- for test loadtable
+local origin_record = {
+	{ activity_id = 200, activity_name = 'test mysql sync' },
+	{ activity_id = 819, activity_name = 'test activity 1' },
+	{ activity_id = 824, activity_name = 'test activity 2' },
+	{ activity_id = 832, activity_name = 'test activity 3' },
+	{ activity_id = 834, activity_name = 'test activity 4' },
+	{ activity_id = 887, activity_name = 'test activity 5' },
+	{ activity_id = 888, activity_name = 'test activity 6' },
+}
+
 local function dbopt()
 	-- insert testcase
 	local tb_activity = dbcache.gettable("tb_activity")
 	assert(tb_activity, "tb_activity is nil")
 
+	-- test loadtable
+	tb_activity.reset()
+	tb_activity.prepare("");
+	assert( tb_activity.find() == 7 )
+	local idx = 1
+	while tb_activity.next() do
+		assert( origin_record[idx].activity_id == tb_activity.getactivity_id() )
+		assert( origin_record[idx].activity_name == tb_activity.getactivity_name() )
+		idx = idx + 1
+	end
+
 	tb_activity.reset()
 	tb_activity.setactivity_id(100)
 	tb_activity.setactivity_name("test_act_name")
-	tb_activity.setstatus(1)
 	tb_activity.insert()
 
 	-- select testcase
 	tb_activity.reset()
-	tb_activity.prepare("activity_id = %activity_id and status = %status")
+	tb_activity.prepare("activity_id = %activity_id and activity_name = %activity_name")
 	tb_activity.findsetactivity_id(100)
-	tb_activity.findsetstatus(1)
+	tb_activity.findsetactivity_name("test_act_name")
 	local row = tb_activity.find()
 	assert(row == 1, string.format("row = %s", row))
 	while tb_activity.next() do
 		assert( tb_activity.getactivity_id() == 100 )
 		assert( tb_activity.getactivity_name() == "test_act_name" )
-		assert( tb_activity.getstatus() == 1 )
 
 		tb_activity.setactivity_name("test_act_name_1")
 		tb_activity.update()
@@ -29,15 +49,14 @@ local function dbopt()
 
 	-- update testcase
 	tb_activity.reset()
-	tb_activity.prepare("activity_id = %activity_id and status = %status")
+	tb_activity.prepare("activity_id = %activity_id and activity_name = %activity_name")
 	tb_activity.findsetactivity_id(100)
-	tb_activity.findsetstatus(1)
+	tb_activity.findsetactivity_name("test_act_name_1")
 	local row = tb_activity.find()
 	assert(row == 1)
 	while tb_activity.next() do
 		assert( tb_activity.getactivity_id() == 100 )
 		assert( tb_activity.getactivity_name() == "test_act_name_1" )
-		assert( tb_activity.getstatus() == 1 )
 	end
 
 	-- remove testcase
@@ -65,8 +84,10 @@ local function dbopt()
 	tb_activity.reset()
 	tb_activity.setactivity_id(200)
 	tb_activity.setactivity_name("test mysql sync")
-	tb_activity.setstatus(1)
 	tb_activity.insert()
+	
+	--
+	dbcache.freestatement()
 end
 
 dbcache.opendb("test", "192.168.8.196", "root", "hQK_DWbBuzl", "testdb", 4400)

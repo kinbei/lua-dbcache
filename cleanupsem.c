@@ -49,7 +49,7 @@ int getKey(char const* databaseName, char const* suffix) {
     return ftok(buf, hashFunction(buf));
 #else
     struct stat st;
-    if (::stat(buf, &st) < 0) { 
+    if (stat(buf, &st) < 0) { 
         return (key_t)-1;
     }
     return (key_t)(((st.st_dev & 0x7f) << 24) ^ (st.st_ino & 0x7fffffff));

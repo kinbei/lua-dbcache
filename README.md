@@ -4,14 +4,12 @@ lua-dbcache 是一个DB缓存的模块，使用FastDB作为数据的缓存，Mys
 执行insert()/update()/remove()操作后，会生成相应的SQL语句放到全局队列  
 外部模块需要调用 dbcache.tickcount() 接口，使生成的SQL语句提交到Mysql数据库  
 内存表结构主要在 dbfunc.h dbfunc.cpp 两个文件，可以很容易通过工具生成代码(之后会考虑提供 dbgen 工具生成 dbfunc.h dbfunc.cpp 两个文件的代码)  
-<font color=red> 注: 此版本的代码有多处异常并未做相应的处理，之后的版本会加上去 </font>  
 
 ## 如何编译
 
 ```
 git clone https://github.com/kinbei/lua-dbcache.git
 cd lua-dbcache
-git submodule update --init --recursive
 make
 ```
 

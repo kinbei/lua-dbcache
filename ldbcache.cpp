@@ -5,14 +5,12 @@
 extern "C" {  
 #include "lua.h"
 #include "lauxlib.h"
+#include "cleanupsem.h"
 }
 
-#include "cleanupsem.h"
 #include "dbfunc.h"
 
 #define MB 1024*1024
-
-#define FIELD_TABLE_OBJECT 1
 
 // 1.memdbname, 2.mysqlhost, 3.mysqluser, 4.mysqlpassword, 5.mysqldbname, 6.mysqldbport, 7.initsize(optional), 8.incsize(optional), 9.idxsize(optional), 10.maxsize(optional)
 static int
@@ -196,9 +194,24 @@ ltickcount(lua_State *L) {
 	return 0;
 }
 
+static int
+lfreestatement(lua_State *L) {
+	lua_pushnil(L);
+	while( lua_next(L, lua_upvalueindex(FIELD_TABLE_FREESTATEMENT)) ) {
+		int statement = lua_tointeger(L, -1);
+		int rc = cli_free(statement);
+		if ( rc != cli_ok ) {
+			return luaL_error(L, "Failed to free statement(%s)", get_cli_error_msg(rc));
+		}
+		lua_pop(L, 1);
+	}
+	return 0;
+}
+
 extern "C" int
 luaopen_dbcache_core(lua_State *L) {
 	queue_init(&g_sqlqueue, sizeof(struct sqldao));
+	queue_init(&g_freestatement, sizeof(int));
 
 	luaL_checkversion(L);
 
@@ -212,6 +225,7 @@ luaopen_dbcache_core(lua_State *L) {
 		{ "closedb", lclosedb },
 		{ "gettable", lgettable },
 		{ "tickcount", ltickcount },
+		{ "freestatement", lfreestatement },
 		{ NULL, NULL },
 	};
 
@@ -221,8 +235,8 @@ luaopen_dbcache_core(lua_State *L) {
 	lua_newtable(L); // upvalue, all table object
 	create_table_objects(L);
 
-	// sharing previous table as upvalue
-	luaL_setfuncs(L, l, 1);
+	// sharing previous tables as upvalue
+	luaL_setfuncs(L, l, 2);
 
 	return 1;
 }

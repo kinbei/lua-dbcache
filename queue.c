@@ -9,7 +9,7 @@ queue_init(struct queue *q, int sz) {
 	q->tail = 0;
 	q->sz = sz;
 	q->cap = 4;
-	q->buffer = (char*)skynet_malloc(q->cap * q->sz);
+	q->buffer = skynet_malloc(q->cap * q->sz);
 }
 
 void
@@ -45,7 +45,7 @@ queue_push(struct queue *q, const void *value) {
 		// full
 		assert(q->sz > 0);
 		int cap = q->cap * 2;
-		char * tmp = (char*)skynet_malloc(cap * q->sz);
+		char * tmp = skynet_malloc(cap * q->sz);
 		int i;
 		int head = q->head;
 		for (i=0;i<q->cap;i++) {
@@ -76,7 +76,7 @@ queue_fpush(struct queue *q, const void *value) {
 		// full
 		assert(q->sz > 0);
 		int cap = q->cap * 2;
-		char * tmp = (char*)skynet_malloc(cap * q->sz);
+		char * tmp = skynet_malloc(cap * q->sz);
 		int i;
 		int head = q->head;
 

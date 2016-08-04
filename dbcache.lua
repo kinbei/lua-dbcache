@@ -30,13 +30,9 @@ function M.closedb()
 	end
 end
 
-function M.tickcount()
-	c.tickcount()
-end
-
-function M.gettable(tablename)
-	return c.gettable(tablename)
-end
+M.tickcount = c.tickcount
+M.freestatement = c.freestatement
+M.gettable = c.gettable
 
 return setmetatable(M, { __gc = function(self)
 	M.closedb()
