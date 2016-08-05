@@ -15,7 +15,7 @@ make
 
 ## 运行测试用例
 
-注: 运行前先将 testdb.sql 导入 mysql 对应的数据库中, 并修改test.lua对应的参数
+注: 运行前先将 testdb.sql 导入 mysql, 并修改 `config.lua` 对应的参数
 
 ```
 lua test.lua

@@ -1,3 +1,4 @@
 /mysql
 /dbcache.so
-/cfile.o
+/queue.o
+/cleanupsem.o

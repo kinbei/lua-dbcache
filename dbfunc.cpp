@@ -86,6 +86,37 @@ int tb_activity_insert_mdb(lua_State *L) {
 
 int
 tb_activity_insert(lua_State *L) {
+	int statement = cli_statement(g_session, "select * from tb_activity where activity_id = %activity_id");
+	if ( statement < 0 ) {
+		return luaL_error(L, "Failed to cli_statement(%s)", get_cli_error_msg(statement));
+	}
+	tb_activity_record record;
+	tb_activity_record &dbrecord = g_dbrecord._tb_activity_record;
+	memset(&record, 0x00, sizeof(record));
+	int rc;
+
+	rc = cli_column(statement, "activity_id", cli_int8, NULL, &record.activity_id);
+	if ( rc != cli_ok ) {
+		cli_free(statement);
+		return luaL_error(L, "Failed to call cli_column(%s) activity_id", get_cli_error_msg(rc));
+	}
+	rc = cli_column(statement, "activity_name", cli_asciiz, NULL, record.activity_name);
+	if ( rc != cli_ok ) {
+		cli_free(statement);
+		return luaL_error(L, "Failed to call cli_column(%s) activity_name", get_cli_error_msg(rc));
+	}
+
+	if ( (rc = cli_parameter(statement, "%activity_id", cli_int8, &dbrecord.activity_id)) != cli_ok ) {
+        return luaL_error(L, "Failed to call cli_parameter(%s)", get_cli_error_msg(rc));
+    }
+	rc = cli_fetch(statement, cli_view_only);
+    if ( rc < 0 ) { 
+		return luaL_error(L, "Failed to call cli_fetch(%s)", get_cli_error_msg(rc));
+    }
+	if ( rc != 0 ) {
+		return luaL_error(L, "insert error[tb_activity primary key(%d) already exists]", dbrecord.activity_id);
+	}
+
 	tb_activity_insert_mdb(L);
 	tb_activity_insert_db(L);
 	return 0;
@@ -101,7 +132,7 @@ tb_activity_prepare(lua_State *L) {
 	if ( statement > 0 ) {
 		rc = cli_free(statement);
 		if ( rc != cli_ok ) {
-			return luaL_error(L, "Failed to call cli_column(%s) activity_name", get_cli_error_msg(rc));
+			return luaL_error(L, "Failed to call cli_free(%s)", get_cli_error_msg(rc));
 		}
 	}
 
@@ -168,7 +199,7 @@ tb_activity_find(lua_State *L) {
 	int &statement = g_statement._tb_activity_statement;
 	int rc = cli_fetch(statement, cli_view_only);
     if ( rc < 0 ) { 
-		return luaL_error(L, "Failed to call cli_fetch(%s)", get_cli_error_msg(rc));
+		return luaL_error(L, "Failed to call cli_fetch(%s) statement = %d", get_cli_error_msg(rc), statement);
     }
 	lua_pushinteger(L, rc);
 	return 1;

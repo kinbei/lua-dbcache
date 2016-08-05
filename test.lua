@@ -1,4 +1,5 @@
 local dbcache = require "dbcache"
+local config = require "config"
 
 -- for test loadtable
 local origin_record = {
@@ -87,11 +88,31 @@ local function dbopt()
 	tb_activity.setactivity_name("test mysql sync")
 	tb_activity.insert()
 	
+	-- test key field
+	tb_activity.reset()
+	tb_activity.setactivity_id(100)
+	tb_activity.setactivity_name("test_act_name")
+	tb_activity.insert()
+
+	local success, err = pcall(function()
+		tb_activity.reset()
+		tb_activity.setactivity_id(100)
+		tb_activity.setactivity_name("test_act_name")
+		tb_activity.insert()
+	end)
+	assert(success == false)
+	assert(err == "test.lua:101: insert error[tb_activity primary key(100) already exists]");
+	tb_activity.prepare("activity_id = 100")
+	assert( tb_activity.find() == 1 )
+	while tb_activity.next() do
+		tb_activity.remove()
+	end
+
 	--
 	dbcache.freestatement()
 end
 
-dbcache.opendb("test", "192.168.8.196", "root", "YVGIp5j2]8B", "testdb", 4400)
+dbcache.opendb(config.memdb_name, config.mysql_host, config.mysql_user, config.mysql_pwd, config.mysql_dbname, config.mysql_port)
 dbcache.begin()
 local ok, err = xpcall(dbopt, debug.traceback)
 if not ok then

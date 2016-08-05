@@ -7,13 +7,13 @@ mysql-connector-c/Makefile :
 fastdb/Makefile :
 	cd fastdb && ./configure --enable-diskless --enable-debug --prefix=$(CURDIR)/fastdb/output/ && make && make install
 	
-cfile.o : queue.c cleanupsem.c
-	gcc -Wall -g -DDEBUG --shared -fPIC -o $@ $^
+queue.o : queue.c cleanupsem.c
+	gcc -Wall -g -DDEBUG -c --shared -fPIC $^
 
 lua/Makefile :
 	git submodule update --init
 
-dbcache.so : ldbcache.cpp dbfunc.cpp cfile.o | cfile.o lua/Makefile fastdb/Makefile mysql-connector-c/Makefile
+dbcache.so : ldbcache.cpp dbfunc.cpp queue.o cleanupsem.o | queue.o lua/Makefile fastdb/Makefile mysql-connector-c/Makefile
 	g++ -Wall -g -DDEBUG --shared -fPIC -o $@ $^ -I./lua -I./fastdb/output/include -L./fastdb/output/lib/ \
 	-I./mysql-connector-c/output/include -L./mysql-connector-c/output/lib/ -lfastdb -lcli -lmysqlclient
 
