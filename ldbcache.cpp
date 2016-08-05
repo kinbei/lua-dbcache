@@ -62,8 +62,8 @@ lopendb(lua_State *L) {
 
 	char * unix_socket = NULL;
 	unsigned long client_flag = 0;
-	g_mysqlconn = mysql_real_connect(g_mysqlconn, mysqlhost, mysqluser, mysqlpassword, mysqldbname, mysqldbport, unix_socket, client_flag);
-	if ( !g_mysqlconn ) {
+	
+	if ( mysql_real_connect(g_mysqlconn, mysqlhost, mysqluser, mysqlpassword, mysqldbname, mysqldbport, unix_socket, client_flag) == NULL ) {
 		return luaL_error(L, "Failed to connect mysql(%s:%d) error(%s)", mysqlhost, mysqldbport, mysql_error(g_mysqlconn));
 	}
 
