@@ -73,12 +73,10 @@ lopendb(lua_State *L) {
 		return luaL_error(L, "mysql_autocommit failed error(%s)", mysql_error(g_mysqlconn));
 	}
 
-/*
 	// Set the default character set for the current connection
-	if ( mysql_set_character_set(g_mysqlconn, "uft8") != 0 ) {
+	if ( mysql_set_character_set(g_mysqlconn, "utf8mb4") != 0 ) {
 		return luaL_error(L, "mysql_set_character_set failed error(%s)", mysql_error(g_mysqlconn));
 	}
-*/
 
 	cleanupsem( memdbname );
 	g_session = cli_create(memdbname, NULL, 0, cli_open_default, initsize*MB, incsize*MB, idxsize*MB, maxsize*MB);

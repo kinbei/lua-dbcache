@@ -1,4 +1,4 @@
--- ----------------------------
+﻿-- ----------------------------
 -- Table structure for tb_activity
 -- ----------------------------
 DROP TABLE IF EXISTS `tb_activity`;
@@ -19,3 +19,4 @@ INSERT INTO `tb_activity` VALUES ('832', 'test activity 3');
 INSERT INTO `tb_activity` VALUES ('834', 'test activity 4');
 INSERT INTO `tb_activity` VALUES ('887', 'test activity 5');
 INSERT INTO `tb_activity` VALUES ('888', 'test activity 6');
+INSERT INTO `tb_activity` VALUES ('889', '中文测试');

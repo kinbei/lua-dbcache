@@ -9,6 +9,7 @@ local origin_record = {
 	{ activity_id = 834, activity_name = 'test activity 4' },
 	{ activity_id = 887, activity_name = 'test activity 5' },
 	{ activity_id = 888, activity_name = 'test activity 6' },
+	{ activity_id = 889, activity_name = '中文测试' },
 }
 
 local function dbopt()
@@ -19,7 +20,7 @@ local function dbopt()
 	-- test loadtable
 	tb_activity.reset()
 	tb_activity.prepare("");
-	assert( tb_activity.find() == 7 )
+	assert( tb_activity.find() == 8 )
 	local idx = 1
 	while tb_activity.next() do
 		assert( origin_record[idx].activity_id == tb_activity.getactivity_id() )
@@ -70,7 +71,7 @@ local function dbopt()
 	end
 	tb_activity.reset()
 	tb_activity.prepare("")
-	assert( tb_activity.find() == 7 )
+	assert( tb_activity.find() == 8 )
 
 	-- test mysql sync
 	tb_activity.reset()
@@ -90,7 +91,7 @@ local function dbopt()
 	dbcache.freestatement()
 end
 
-dbcache.opendb("test", "192.168.8.196", "root", "hQK_DWbBuzl", "testdb", 4400)
+dbcache.opendb("test", "192.168.8.196", "root", "YVGIp5j2]8B", "testdb", 4400)
 dbcache.begin()
 local ok, err = xpcall(dbopt, debug.traceback)
 if not ok then
